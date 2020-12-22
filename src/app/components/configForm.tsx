@@ -16,7 +16,7 @@ type Props = {
 }
 
 export function ConfigForm(props: Props) {
-    const {value: repoPath, setValue: setRepoPath, bind: bindRepoPath} = useInput(props.cachedConfig.repoPath);
+    const {value: repoPath, setValue: setRepoPath, bind: bindRepoPath} = useInput('');
     const {value: token, setValue: setToken, bind: bindToken} = useInput('');
     const {value: committerName, setValue: setCommitterName, bind: bindCommitterName} = useInput('');
     const {value: committerEmail, setValue: setCommitterEmail, bind: bindCommitterEmail} = useInput('');
