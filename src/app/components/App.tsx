@@ -1,46 +1,99 @@
 import * as React from 'react';
 import '../styles/ui.css';
+import {Config, ConfigForm} from './configForm';
+import {useState} from 'react';
 
-declare function require(path: string): any;
+const NETWORK_ERROR = "Network error";
+
+function httpRequest(config: Config, requestType, url, content?) {
+    return new Promise(function(resolve, reject) {
+        const xhr = new XMLHttpRequest();
+        xhr.open(requestType, url);
+        xhr.setRequestHeader('Authorization', `token ${config.token}`);
+
+        xhr.onload = function() {
+            resolve(this.response);
+            if (xhr.status != 200) {
+                closePlugin();
+            }
+        };
+
+        xhr.onerror = function() {
+            reject(new Error(NETWORK_ERROR));
+        };
+
+        content ? xhr.send(content) : xhr.send();
+    });
+}
+
+function closePlugin() {
+    window.parent.postMessage({pluginMessage: { type: 'done'} }, '*');
+}
+
+function createEmptyConfig() {
+    return {
+        repoPath: '',
+        token: '',
+        committerName: '',
+        committerEmail: '',
+        headBranch: '',
+        baseBranch: ''
+    };
+}
 
 const App = ({}) => {
-    const textbox = React.useRef<HTMLInputElement>(undefined);
+    let [config, setConfig] = useState(createEmptyConfig());
+    let [cachedConfig, setCachedConfig] = useState(createEmptyConfig());
 
-    const countRef = React.useCallback((element: HTMLInputElement) => {
-        if (element) element.value = '5';
-        textbox.current = element;
-    }, []);
-
-    const onCreate = React.useCallback(() => {
-        const count = parseInt(textbox.current.value, 10);
-        parent.postMessage({pluginMessage: {type: 'create-rectangles', count}}, '*');
-    }, []);
-
-    const onCancel = React.useCallback(() => {
-        parent.postMessage({pluginMessage: {type: 'cancel'}}, '*');
-    }, []);
+    const onSubmit = (inputConfig: Config) => {
+        setConfig(inputConfig);
+    };
 
     React.useEffect(() => {
-        // This is how we read messages sent from the plugin controller
-        window.onmessage = (event) => {
-            const { type, message } = event.data.pluginMessage;
-            if (type === 'create-rectangles') {
-                console.log(`Figma Says: ${message}`);
-            };
+        parent.postMessage({ pluginMessage: { type: 'getConfig' } }, '*');
+        window.onmessage = async (event) => {
+            if (event.data.pluginMessage.type === 'networkRequest') {
+                // Get last sha of file in which to commit
+                httpRequest(config, 'GET', `${config.repoPath}/contents/styles.json?ref=${config.headBranch}`)
+                    // Commit changes to head branch
+                    .then((response: string) => {
+                        const sha = JSON.parse(response).sha;
+                        return httpRequest(config, 'PUT', `${config.repoPath}/contents/styles.json`,
+                            [JSON.stringify({
+                                message: "applying Figma styles update",
+                                content: window.btoa(event.data.pluginMessage.content),
+                                branch: "styles",
+                                committer: {
+                                    name: config.committerName,
+                                    email: config.committerEmail
+                                },
+                                sha
+                            })])
+                    })
+                    // Make a pull request from head to base branch
+                    .then(() => {
+                        return httpRequest(config, 'POST', `${config.repoPath}/pulls`,
+                            [JSON.stringify({
+                                owner: config.committerName,
+                                repo: "design-system",
+                                head: config.headBranch,
+                                base: config.baseBranch,
+                                title: "Update styles",
+                            })])
+                    })
+                    .then(closePlugin);
+            }
+
+            if (event.data.pluginMessage.type === 'githubConfig') {
+                setCachedConfig(event.data.pluginMessage.content);
+            }
         }
     }, []);
 
     return (
         <div>
-            <img src={require('../assets/logo.svg')} />
-            <h2>Rectangle Creator</h2>
-            <p>
-                Count: <input ref={countRef} />
-            </p>
-            <button id="create" onClick={onCreate}>
-                Create
-            </button>
-            <button onClick={onCancel}>Cancel</button>
+            <h2>Синхронизировать дизайн с кодом?</h2>
+            <ConfigForm onSubmit={onSubmit} cachedConfig={cachedConfig} />
         </div>
     );
 };
