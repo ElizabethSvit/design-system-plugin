@@ -45,3 +45,7 @@ input:focus {
 .error-message {
     color: #ff556b
 }
+
+.success-message {
+    color: green;
+}

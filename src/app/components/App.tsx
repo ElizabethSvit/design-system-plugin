@@ -4,6 +4,7 @@ import {Config, ConfigForm} from './configForm';
 import {useState} from 'react';
 
 const NETWORK_ERROR = "Network error";
+const LAST_SUCCESSFUL_STATUS = 299;
 
 function httpRequest(config: Config, requestType, url, setErrorLog, setLoading, content?) {
     return new Promise(function(resolve, reject) {
@@ -13,7 +14,7 @@ function httpRequest(config: Config, requestType, url, setErrorLog, setLoading, 
         xhr.responseType = 'text';
 
         xhr.onload = function() {
-            if (xhr.status != 200) {
+            if (xhr.status > LAST_SUCCESSFUL_STATUS) {
                 setLoading(false);
                 setErrorLog(`Ошибка в запросе ${requestType} ${url}: ${xhr.status} ${JSON.parse(xhr.responseText).message}`);
                 reject();
@@ -47,6 +48,7 @@ const App = ({}) => {
     let [cachedConfig, setCachedConfig] = useState(createEmptyConfig());
     const [isLoading, setLoading] = useState(false);
     const [errorLog, setErrorLog] = useState('');
+    const [successLog, setSuccessLog] = useState('');
 
     React.useEffect(() => {
         parent.postMessage({ pluginMessage: { type: 'getConfig' } }, '*');
@@ -107,14 +109,19 @@ const App = ({}) => {
 
     function closePlugin() {
         setLoading(false);
-        window.parent.postMessage({pluginMessage: { type: 'done'} }, '*');
+        setSuccessLog('Успешно отправлено!');
+        setTimeout(
+            () => window.parent.postMessage({pluginMessage: { type: 'done'} }, '*'),
+            1000
+        );
     }
 
     return (
         <div>
             <h2>Синхронизировать дизайн с кодом?</h2>
             <ConfigForm cachedConfig={cachedConfig}/>
-            {isLoading ? <p>Loading...</p> : <p className="error-message">{errorLog}</p>}
+            {isLoading ? <p>Loading...</p> : errorLog.length > 0 ?
+                <p className="error-message">{errorLog}</p> : <p className="success-message">{successLog}</p>}
         </div>
     );
 };
