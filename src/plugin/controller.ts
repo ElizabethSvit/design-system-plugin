@@ -56,7 +56,11 @@ figma.ui.onmessage = (msg) => {
         styles['iconStyles'] = iconStyles;
 
         // Transfer styles to ui for a network request to Github
-        figma.ui.postMessage({type: 'networkRequest', content: JSON.stringify(styles, null, 2)});
+        figma.ui.postMessage({
+            type: 'networkRequest',
+            content: JSON.stringify(styles, null, 2),
+            config: msg.config
+        });
     }
     if (msg.type === 'done') {
         figma.closePlugin();

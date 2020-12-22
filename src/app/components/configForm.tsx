@@ -11,7 +11,6 @@ export type Config = {
 };
 
 type Props = {
-    onSubmit: (config: Config) => void;
     cachedConfig: Config;
 }
 
@@ -33,7 +32,6 @@ export function ConfigForm(props: Props) {
             headBranch,
             baseBranch,
         };
-        props.onSubmit(config);
         parent.postMessage({ pluginMessage: { type: 'send', config } }, '*');
     };
 

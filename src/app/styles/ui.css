@@ -41,3 +41,7 @@ input:focus {
     align-items: center;
     justify-content: space-between;
 }
+
+.error-message {
+    color: #ff556b
+}
